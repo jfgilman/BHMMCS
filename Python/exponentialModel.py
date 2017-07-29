@@ -6,15 +6,14 @@ import pandas as pd
 import pymc3 as pm
 import scipy.stats as stats
 
+
 plt.style.use('ggplot')
 
 df = pd.read_csv('Python/simDat.csv')
 
+df1 = df[df.System == 1]
+
 n_component = max(df['Component'])
-
-miles = df.iloc[:20, 1]
-
-df.Time
 
 with pm.Model() as hm:
     # Hyperpriors
@@ -26,10 +25,10 @@ with pm.Model() as hm:
     rho1 = pm.Gamma('Rho1', alpha=3, beta=3)
     rho2 = pm.Gamma('Rho2', alpha=3, beta=3)
 
-    rateP = lam 
+    rateP = [lam[int(df1.Component[i] - 1)] * rho1**df1.Phase2[i] * rho2**df1.Phase3[i] for i in range(len(df1))]
 
     # Data likelihood
-    y = pm.Exponential('y', lam=lam, observed=miles)
+    y = pm.Exponential('y', rateP, observed=df1.Time)
 
     trace = pm.sample(1000, tune=500)
 
