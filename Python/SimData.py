@@ -4,18 +4,18 @@ import pandas as pd
 import numpy as np
 
 # set parameters
-lams = [[50] * 4,
-        np.random.gamma(10, 15, 4),
-        [24] * 4,
-        np.random.gamma(5, 8, 4),
-        [80] * 4]
+lams = [[0.025] * 4,
+        np.random.gamma(0.1, 0.05, 4),
+        [0.1] * 4,
+        np.random.gamma(0.2, 0.15, 4),
+        [0.01] * 4]
 
 rho1 = .7
 rho2 = .8
 
 testLen = 500
 
-df = pd.DataFrame(columns=['Time', 'Censored', 'System', 'Phase', 'Component'])
+df = pd.DataFrame(columns=['Time', 'Censored', 'System', 'Phase2', 'Phase3', 'Component'])
 
 i = 0
 for sys in range(4):
@@ -23,35 +23,35 @@ for sys in range(4):
         t1 = 0
 
         while t1 < testLen:
-            d = np.random.exponential(lams[comp][sys])
+            d = np.random.exponential(1 / lams[comp][sys])
             t1 += d
             if(t1 > testLen):
-                df.loc[i] = [d - (t1 - testLen), True, sys + 1, 1, comp + 1]
+                df.loc[i] = [d - (t1 - testLen), True, sys + 1, 0, 0, comp + 1]
                 i += 1
             else:
-                df.loc[i] = [d, False, sys + 1, 1, comp + 1]
+                df.loc[i] = [d, False, sys + 1, 0, 0, comp + 1]
                 i += 1
 
         t2 = 0
         while t2 < testLen:
-            d = np.random.exponential(lams[comp][sys] * rho1)
+            d = np.random.exponential((1 / lams[comp][sys]) * (1 / rho1))
             t2 += d
             if(t2 > testLen):
-                df.loc[i] = [d - (t2 - testLen), True, sys + 1, 2, comp + 1]
+                df.loc[i] = [d - (t2 - testLen), True, sys + 1, 1, 0, comp + 1]
                 i += 1
             else:
-                df.loc[i] = [d, False, sys + 1, 2, comp + 1]
+                df.loc[i] = [d, False, sys + 1, 1, 0, comp + 1]
                 i += 1
 
         t3 = 0
         while t3 < testLen:
-            d = np.random.exponential(lams[comp][sys] * rho1 * rho2)
+            d = np.random.exponential((1 / lams[comp][sys]) * (1 / rho1) * (1 / rho2))
             t3 += d
             if(t3 > testLen):
-                df.loc[i] = [d - (t3 - testLen), True, sys + 1, 3, comp + 1]
+                df.loc[i] = [d - (t3 - testLen), True, sys + 1, 1, 1, comp + 1]
                 i += 1
             else:
-                df.loc[i] = [d, False, sys + 1, 3, comp + 1]
+                df.loc[i] = [d, False, sys + 1, 1, 1, comp + 1]
                 i += 1
 
 df.to_csv('simDat.csv')
