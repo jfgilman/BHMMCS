@@ -4,10 +4,16 @@ import pandas as pd
 import numpy as np
 
 # set parameters
-lams = [[0.025] * 4,
-        np.random.gamma(0.1, 0.05, 4),
-        [0.1] * 4,
-        np.random.gamma(0.2, 0.15, 4),
+# lams = [[0.025] * 4,
+#         np.random.gamma(0.1, 0.05, 4),
+#         [0.1] * 4,
+#         np.random.gamma(0.2, 0.15, 4),
+#         [0.01] * 4]
+
+lams = [[0.05] * 4,
+        [0.04] * 4,
+        [0.03] * 4,
+        [0.02] * 4,
         [0.01] * 4]
 
 rho1 = .7

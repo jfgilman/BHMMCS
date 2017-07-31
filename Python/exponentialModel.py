@@ -8,11 +8,11 @@ import theano.tensor as t
 
 plt.style.use('ggplot')
 
-# df = pd.read_csv('Python/simDat.csv')
+df = pd.read_csv('simDat.csv')
 
 df1 = df[df.System == 1]
 
-n_component = max(df['Component'])
+n_component = max(df['Component']).astype(int)
 
 times = df1.Time
 failure = 1 - (df1.Censored).astype(int)
