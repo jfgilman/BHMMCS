@@ -8,7 +8,7 @@ import theano.tensor as t
 
 plt.style.use('ggplot')
 
-df = pd.read_csv('simDat.csv')
+df = pd.read_csv('Python/simDat.csv')
 
 df1 = df[df.System == 1]
 
@@ -30,16 +30,10 @@ with pm.Model() as hm:
     rateP = [lam[int(df1.Component[i] - 1)] * rho1**df1.Phase2[i] * rho2**df1.Phase3[i] for i in range(len(df1))]
 
     def expo_log_like(failure, time):
-        return t.sum(failure * t.log(rateP) - rateP * time)
+        return t.dot(failure, t.log(rateP)) - t.dot(rateP, time)
 
     # Data likelihood
     y = pm.DensityDist('y', expo_log_like, observed={'failure': failure, 'time': times})
-
-with hm:
-
-    # start = pm.find_MAP()
-    # step = pm.NUTS(scaling=start)
-    # trace = pm.sample(1000, step=step, start=start)
 
     trace = pm.sample(1000, tune=500)
 

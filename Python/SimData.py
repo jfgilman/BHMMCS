@@ -4,17 +4,11 @@ import pandas as pd
 import numpy as np
 
 # set parameters
-# lams = [[0.025] * 4,
-#         np.random.gamma(0.1, 0.05, 4),
-#         [0.1] * 4,
-#         np.random.gamma(0.2, 0.15, 4),
-#         [0.01] * 4]
-
-lams = [[0.05] * 4,
-        [0.04] * 4,
-        [0.03] * 4,
-        [0.02] * 4,
-        [0.01] * 4]
+lams = [[0.25] * 4,
+        np.random.gamma(0.1, 0.5, 4),
+        [0.1] * 4,
+        np.random.gamma(0.2, 0.15, 4),
+        [0.9] * 4]
 
 rho1 = .7
 rho2 = .8
@@ -60,4 +54,4 @@ for sys in range(4):
                 df.loc[i] = [d, False, sys + 1, 1, 1, comp + 1]
                 i += 1
 
-df.to_csv('simDat.csv')
+df.to_csv('Python/simDat.csv')
