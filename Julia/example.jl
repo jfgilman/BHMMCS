@@ -24,33 +24,32 @@ model = Model(
 
 )
 
-
-# Case 1: Multivariate Normal with independence covariance matrix
-beta = Stochastic(1,
-  () -> MvNormal(2, sqrt(1000))
-)
-
-# Case 2: One common univariate Normal
-beta = Stochastic(1,
-  () -> Normal(0, sqrt(1000))
-)
-
-# Case 3: Array of univariate Normals
-beta = Stochastic(1,
-  () -> UnivariateDistribution[Normal(0, sqrt(1000)), Normal(0, sqrt(1000))]
-)
-
-# Case 4: Array of univariate Normals
-beta = Stochastic(1,
-  () -> UnivariateDistribution[Normal(0, sqrt(1000)) for i in 1:2]
-)
-
-## Hybrid No-U-Turn and Slice Sampling Scheme
-scheme1 = [NUTS(:beta),
-           Slice(:s2, 3.0)]
-
-## No-U-Turn Sampling Scheme
-scheme2 = [NUTS([:beta, :s2])]
+# # Case 1: Multivariate Normal with independence covariance matrix
+# beta = Stochastic(1,
+#   () -> MvNormal(2, sqrt(1000))
+# )
+#
+# # Case 2: One common univariate Normal
+# beta = Stochastic(1,
+#   () -> Normal(0, sqrt(1000))
+# )
+#
+# # Case 3: Array of univariate Normals
+# beta = Stochastic(1,
+#   () -> UnivariateDistribution[Normal(0, sqrt(1000)), Normal(0, sqrt(1000))]
+# )
+#
+# # Case 4: Array of univariate Normals
+# beta = Stochastic(1,
+#   () -> UnivariateDistribution[Normal(0, sqrt(1000)) for i in 1:2]
+# )
+#
+# ## Hybrid No-U-Turn and Slice Sampling Scheme
+# scheme1 = [NUTS(:beta),
+#            Slice(:s2, 3.0)]
+#
+# ## No-U-Turn Sampling Scheme
+# scheme2 = [NUTS([:beta, :s2])]
 
 
 ## User-Defined Samplers
@@ -77,3 +76,27 @@ Gibbs_s2 = Sampler([:s2],
 
 ## User-Defined Sampling Scheme
 scheme3 = [Gibbs_beta, Gibbs_s2]
+
+## Data
+line = Dict{Symbol, Any}(
+  :x => [1, 2, 3, 4, 5],
+  :y => [1, 3, 3, 3, 5]
+)
+line[:xmat] = [ones(5) line[:x]]
+
+## Initial Values
+inits = [
+  Dict{Symbol, Any}(
+    :y => line[:y],
+    :beta => rand(Normal(0, 1), 2),
+    :s2 => rand(Gamma(1, 1))
+  )
+for i in 1:3
+]
+
+setsamplers!(model, scheme3)
+sim3 = mcmc(model, line, inits, 10000, burnin=250, thin=2, chains=3)
+
+gelmandiag(sim3, mpsrf=true, transform=true) |> showall
+
+heideldiag(sim3) |> showall
