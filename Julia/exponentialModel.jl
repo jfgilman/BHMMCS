@@ -7,56 +7,53 @@ n_comp = 5
 # set parameters
 lams = zeros(n_comp, n_sys)
 
-for i in 1:n_comp
-        lams[i,:] = 5 * i * ones(n_sys)
+for i in 1:n_sys
+        lams[:,i] = 5 * i * ones(n_comp)
 end
 
 rho1 = 0.7
 rho2 = 0.9
 
-testLen = 500
+testLen = 1000
 
 df = DataFrame(MBF = Float64[], Censored = Bool[], System = Int64[], Phase = Int64[])
 
 for sys in 1:n_sys
-        for comp in 1:n_comp
-                t1 = 0
+      t1 = 0
+      while t1 < testLen
+        d = rand(Exponential(lams[1, sys]))
+        t1 += d
 
-                while t1 < testLen
-                  d = rand(Exponential(lams[comp, sys]))
-                  t1 += d
-
-                  if t1 > testLen
-                    push!(df, [d, true, sys, 1])
-                  else
-                    push!(df, [d, false, sys, 1])
-                  end
-                end
-
-                t2 = 0
-                while t2 < testLen
-                  d = rand(Exponential(lams[comp, sys] * rho1))
-                  t2 += d
-
-                  if t2 > testLen
-                    push!(df, [d, true, sys, 2])
-                  else
-                    push!(df, [d, false, sys, 2])
-                  end
-                end
-
-                t3 = 0
-                while t3 < testLen
-                  d = rand(Exponential(lams[comp, sys] * rho1 * rho2))
-                  t3 += d
-
-                  if t3 > testLen
-                    push!(df, [d, true, sys, 3])
-                  else
-                    push!(df, [d, false, sys, 3])
-                  end
-                end
+        if t1 > testLen
+          push!(df, [d, true, sys, 1])
+        else
+          push!(df, [d, false, sys, 1])
         end
+      end
+
+      t2 = 0
+      while t2 < testLen
+        d = rand(Exponential(lams[1, sys] * rho1))
+        t2 += d
+
+        if t2 > testLen
+          push!(df, [d, true, sys, 2])
+        else
+          push!(df, [d, false, sys, 2])
+        end
+      end
+
+      t3 = 0
+      while t3 < testLen
+        d = rand(Exponential(lams[1, sys] * rho1 * rho2))
+        t3 += d
+
+        if t3 > testLen
+          push!(df, [d, true, sys, 3])
+        else
+          push!(df, [d, false, sys, 3])
+        end
+      end
 end
 
 ## Data
@@ -92,7 +89,7 @@ model = Model(
             else
               rate = lambda[system[i]] * rho1 * rho2
             end
-            Exponential(1 / rate)
+            Exponential(rate)
           end
           for i in 1:N
         ],
@@ -100,7 +97,7 @@ model = Model(
   ),
 
   lambda = Stochastic(1,
-    (alpha, beta) -> Gamma(alpha, 1 / beta),
+    (alpha, beta) -> Gamma(alpha, beta),
     true
   ),
 
@@ -123,6 +120,7 @@ model = Model(
   )
 )
 
+n_chains = 2
 ## Initial Values
 inits = [
   Dict{Symbol, Any}(
@@ -133,26 +131,35 @@ inits = [
     :rho1 => rand(Gamma(1, 1)),
     :rho2 => rand(Gamma(1, 1))
   )
-for i in 1:3
+for i in 1:n_chains
 ]
 
 Gibbs_beta = Sampler([:beta],
-  (beta, s2, xmat, y) ->
+  (beta, alpha, lambda) ->
     begin
-      beta_mean = mean(beta.distr)
-      beta_invcov = invcov(beta.distr)
-      Sigma = inv(Symmetric(xmat' * xmat / s2 + beta_invcov))
-      mu = Sigma * (xmat' * y / s2 + beta_invcov * beta_mean)
-      rand(MvNormal(mu, Sigma))
+      hyper_prior = 0.001
+      a = 4 + hyper_prior
+      sum_lam = sum(lambda)
+      b = sum_lam + hyper_prior
+      rand(Gamma(a, b))
     end
 )
+
+# Gibbs_lambda = Sampler([:lambda],
+#   (beta, alpha, lambda, rho1, rho2) ->
+#     begin
+# 
+#       rand(Gamma(a, b))
+#     end
+# )
+
+scheme1 = [Gibbs_beta, NUTS([:lambda, :alpha, :rho1, :rho2])]
 
 ## No-U-Turn Sampling Scheme
 scheme2 = [NUTS([:lambda, :alpha, :beta, :rho1, :rho2])]
 
 ## Sampling Scheme Assignment
-setsamplers!(model, scheme2)
-sim2 = mcmc(model, JLTV, inits, 10000, burnin=250, thin=2, chains=3)
-
+setsamplers!(model, scheme1)
+sim2 = mcmc(model, JLTV, inits, 10000, burnin=250, thin=2, chains=n_chains)
 
 describe(sim2)
