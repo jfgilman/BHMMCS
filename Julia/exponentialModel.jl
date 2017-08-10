@@ -60,21 +60,12 @@ end
 JLTV = Dict{Symbol, Any}(
   :phase => Array(df[:Phase]),
   :system => Array(df[:System]),
-  :mbf => Array(df[:MBF])
+  :mbf => Array(df[:MBF]),
+  :censored => Array(df[:Censored])
 )
 JLTV[:n_sys] = 4
 JLTV[:N] = length(JLTV[:mbf])
 
-# ## Data
-# JLTV = Dict{Symbol, Any}(
-#   :phase => [1, 1, 2, 2, 3, 3, 1],
-#   :system => [1,2,3,4,1,2,3],
-#   :mbf => [2.0, 3.3332, 2.22, 5.4421, 0.2934, 10.2, 11.0]
-# )
-# JLTV[:n_sys] = 4
-# JLTV[:N] = length(JLTV[:mbf])
-
-typeof(JLTV[:mbf])
 
 model = Model(
 
@@ -138,17 +129,18 @@ Gibbs_beta = Sampler([:beta],
   (beta, alpha, lambda) ->
     begin
       hyper_prior = 0.001
-      a = 4 + hyper_prior
+      a = 4 + shape(beta.distr)
       sum_lam = sum(lambda)
-      b = sum_lam + hyper_prior
+      b = sum_lam + scale(beta.distr)
       rand(Gamma(a, b))
     end
 )
 
 # Gibbs_lambda = Sampler([:lambda],
-#   (beta, alpha, lambda, rho1, rho2) ->
+#   (beta, alpha, lambda, rho1, rho2, mbf, phase, censored) ->
 #     begin
-# 
+#       a = alpha
+#
 #       rand(Gamma(a, b))
 #     end
 # )
