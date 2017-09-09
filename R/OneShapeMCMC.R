@@ -1,7 +1,6 @@
 # Common Beta version of the Weibull MCMC
 
 library(coda)
-library(LearnBayes)
 library(Rcpp)
 
 cppFunction('double logWeibullSumCPP(NumericVector x, double shape, double scale) {

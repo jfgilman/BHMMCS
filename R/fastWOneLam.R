@@ -45,6 +45,10 @@ fastWOneLam <- function(data, samples = 5000, shapePriorA = .001,
     phase3Count <- phase3Count + length(which(data[[i]]$Phase == 3 & data[[i]]$Censor == 0))
   }
   
+  totalObsNoCen <- sum(data[[1]]$Censor == 0,data[[2]]$Censor == 0,data[[3]]$Censor == 0,
+                       data[[4]]$Censor == 0,data[[5]]$Censor == 0,data[[6]]$Censor == 0,
+                       data[[7]]$Censor == 0,data[[8]]$Censor == 0)
+  
   # MCMC draws
   for (i in 2:samples) {
     
@@ -63,20 +67,20 @@ fastWOneLam <- function(data, samples = 5000, shapePriorA = .001,
 
     
     beta_draws[i] <- rgamma(1, length(data)*alpha_draws[i-1] + HyperG1,
-                            sum(lam_draws[i,1:ncol(lam_draws)]) + HyperG2)
+                            sum(lam_draws[i]) + HyperG2)
     
     # Phase sums
     phase2Sum <- 0
     phase3Sum4 <- 0
     phase3Sum5 <- 0
     for(k in 1:length(data)){
-      phase2Sum <- phase2Sum + lam_draws[i,k] * sum(data[[k]]$MBF[data[[k]]$Phase == 2]^shape_draws[i-1])
+      phase2Sum <- phase2Sum + lam_draws[i] * sum(data[[k]]$MBF[data[[k]]$Phase == 2]^shape_draws[i-1])
       
       # for the first rho
-      phase3Sum4 <- phase3Sum4 + lam_draws[i,k] * rho2_draws[i-1] * sum(data[[k]]$MBF[data[[k]]$Phase == 3]^shape_draws[i-1])
+      phase3Sum4 <- phase3Sum4 + lam_draws[i] * rho2_draws[i-1] * sum(data[[k]]$MBF[data[[k]]$Phase == 3]^shape_draws[i-1])
       
       # for second rho
-      phase3Sum5 <- phase3Sum5 + lam_draws[i,k] * rho1_draws[i-1] * sum(data[[k]]$MBF[data[[k]]$Phase == 3]^shape_draws[i-1])
+      phase3Sum5 <- phase3Sum5 + lam_draws[i] * rho1_draws[i-1] * sum(data[[k]]$MBF[data[[k]]$Phase == 3]^shape_draws[i-1])
     }
     
     rho1_draws[i] <- rgamma(1, phase2Count + phase3Count + hyperT1A, phase2Sum + phase3Sum4 + hyperT1B)
@@ -122,12 +126,12 @@ fastWOneLam <- function(data, samples = 5000, shapePriorA = .001,
     shape_draws[i] <- shape_draws[i-1]
     astar <- rnorm(1, alpha_draws[i-1], tuningA)
     if (astar > 0) {
-      lnew <- logPost(d = data, lambdas = lam_draws[i], shape = shape_draws[i],
-                      rho1 = rho1_draws[i], rho2 = rho2_draws[i],
-                      alpha = astar, beta = beta_draws[i])
-      lold <- logPost(d = data, lambdas = lam_draws[i], shape = shape_draws[i],
-                      rho1 = rho1_draws[i], rho2 = rho2_draws[i],
-                      alpha = alpha_draws[i-1], beta = beta_draws[i])
+      lnew <- logPostOneLam(d = data, lambda = lam_draws[i], shape = shape_draws[i],
+                            rho1 = rho1_draws[i], rho2 = rho2_draws[i],
+                            alpha = astar, beta = beta_draws[i])
+      lold <- logPostOneLam(d = data, lambda = lam_draws[i], shape = shape_draws[i],
+                            rho1 = rho1_draws[i], rho2 = rho2_draws[i],
+                            alpha = alpha_draws[i-1], beta = beta_draws[i])
       if(is.finite(lnew - lold)){
         if (lnew - lold > log(runif(1))) {
           alpha_draws[i] <- astar
@@ -139,10 +143,10 @@ fastWOneLam <- function(data, samples = 5000, shapePriorA = .001,
     # Sample from shape
     sstar <- rnorm(1, shape_draws[i-1], tuningS)
     if (sstar > 0) {
-      lnew <- logPostOneLam(d = data, lambdas = lam_draws[i], shape = sstar,
+      lnew <- logPostOneLam(d = data, lambda = lam_draws[i], shape = sstar,
                             rho1 = rho1_draws[i], rho2 = rho2_draws[i],
                             alpha = alpha_draws[i], beta = beta_draws[i])
-      lold <- logPostOneLam(d = data, lambdas = lam_draws[i], shape = shape_draws[i-1],
+      lold <- logPostOneLam(d = data, lambda = lam_draws[i], shape = shape_draws[i-1],
                             rho1 = rho1_draws[i], rho2 = rho2_draws[i],
                             alpha = alpha_draws[i], beta = beta_draws[i])
       if(is.finite(lnew - lold)){
@@ -157,6 +161,11 @@ fastWOneLam <- function(data, samples = 5000, shapePriorA = .001,
       } else {
         twoXlogLike[i] <- (-2) * lold
       }
+    } else {
+      lold <- logPostOneLam(d = data, lambda = lam_draws[i], shape = shape_draws[i-1],
+                            rho1 = rho1_draws[i], rho2 = rho2_draws[i],
+                            alpha = alpha_draws[i], beta = beta_draws[i])
+      twoXlogLike[i] <- (-2) * lold
     }
   }
   
@@ -167,12 +176,12 @@ fastWOneLam <- function(data, samples = 5000, shapePriorA = .001,
     
     dthetahat <- 0
     
-    dthetahat <- logPost(d = data, lambdas = colMeans(lam_draws[200:samples]), 
-                         shape = mean(shape_draws[200:samples]),
-                         rho1 = mean(rho1_draws[200:samples]), 
-                         rho2 = mean(rho2_draws[200:samples]),
-                         alpha = mean(alpha_draws[200:samples]), 
-                         beta = mean(beta_draws[200:samples]))
+    dthetahat <- logPostOneLam(d = data, lambda = mean(lam_draws[200:samples]), 
+                               shape = mean(shape_draws[200:samples]),
+                               rho1 = mean(rho1_draws[200:samples]), 
+                               rho2 = mean(rho2_draws[200:samples]),
+                               alpha = mean(alpha_draws[200:samples]), 
+                               beta = mean(beta_draws[200:samples]))
     
     pd <- davg + 2 * dthetahat
     dic <- davg + pd

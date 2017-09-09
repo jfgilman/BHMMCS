@@ -151,6 +151,11 @@ fastWMcMC <- function(data, samples = 5000, shapePriorA = .001,
       } else {
         twoXlogLike[i] <- (-2) * lold
       }
+    } else {
+      lold <- logPostOneLam(d = data, lambda = lam_draws[i], shape = shape_draws[i-1],
+                            rho1 = rho1_draws[i], rho2 = rho2_draws[i],
+                            alpha = alpha_draws[i], beta = beta_draws[i])
+      twoXlogLike[i] <- (-2) * lold
     }
   }
   

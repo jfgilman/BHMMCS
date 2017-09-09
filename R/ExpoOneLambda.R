@@ -1,66 +1,40 @@
+library(dplyr)
+source("R/fastWLogLike.R")
 
-library(coda)
-library(LearnBayes)
+# MCMC function for Weibull-Gamma Hierarchical Model
+# Motivating example: JLTV a single component tested across multiple variants
 
-# inverse CDF of weibull for generating data
-eF.inv <- function(u,lam){
-  return((-log(1-u)/lam))
-}
-
-
-ExpoOLMCMC <- function(data, samples, hyperB1 = .001, hyperB2 = .001,
-                          hyperA1 = .001, hyperA2 = .001, alphaStart = 1,
-                          hyperT1A = 3, hyperT1B = 3, hyperT2A = 3, hyperT2B = 3,
-                          betaStart = 1, theta1Start = 1, theta2Start = 1,
-                          tuning = 1, trun = T){
-  
-  # Save the starting data for imputation
-  dataStart <- data
+ExpoOLMCMC <- function(data, samples = 5000, shapePriorA = .001,
+                        shapePriorB = .001, HyperG1 = .001, HyperG2 = .001,
+                        hyperA1 = .001, hyperA2 = .001, hyperT1A = 3,
+                        hyperT1B = 3, hyperT2A = 3, hyperT2B = 3,
+                        alphaStart = 1, betaStart = 1, rho1Start = 1,
+                        rho2Start = 1, shapeStart = 1, tuningA = 1,
+                        tuningS = 1){
   
   # matrix for keeping MCMC draws for each parameter
-  draws <- matrix(0, nrow = samples, ncol = 5)
+  lam_draws <- rep(0, samples)
+  lam_draws[1] <- 1
   
-  draws[1,1] <- alphaStart
-  draws[1,2] <- betaStart
-  draws[1,3] <- theta1Start
-  draws[1,4] <- theta2Start
+  alpha_draws <- rep(0, samples)
+  alpha_draws[1] <- alphaStart
+  
+  beta_draws <- rep(0, samples)
+  beta_draws[1] <- betaStart
+  
+  shape_draws <- rep(1, samples)
+  
+  rho1_draws <- rep(0, samples)
+  rho1_draws[1] <- rho1Start
+  
+  rho2_draws <- rep(0, samples)
+  rho2_draws[1] <- rho2Start
+  
+  twoXlogLike <- rep(0, samples)
   
   # counter for acceptance rate
-  acc <- 0
-  
-  # log posterior function for MCMC draws
-  logPost <- function(parm, d) {
-    
-    lp <- 0
-    
-    for(k in 1:length(d)){
-      
-      # 3rd line is subtracting sum of product of lamda and censored observations
-      # this is the log likelihood of censored data
-      lp <- lp + 
-        sum(dexp(d[[k]][which(d[[k]]$Censor == 0 & d[[k]]$Phase == 1 & d[[k]]$trun == F),1], parm[5], log = T)) +
-        sum(dexp(d[[k]][which(d[[k]]$Censor == 0 & d[[k]]$Phase == 2 & d[[k]]$trun == F),1], parm[5]*parm[3], log = T)) +
-        sum(dexp(d[[k]][which(d[[k]]$Censor == 0 & d[[k]]$Phase == 3 & d[[k]]$trun == F),1], parm[5]*parm[3]*parm[4], log = T)) -
-        sum(parm[5]*d[[k]][which(d[[k]]$Censor == 1 & d[[k]]$Phase == 1 & d[[k]]$trun == F),1]) -
-        sum(parm[5]*parm[3]*d[[k]][which(d[[k]]$Censor == 1 & d[[k]]$Phase == 2 & d[[k]]$trun == F),1]) -
-        sum(parm[5]*parm[3]*parm[4]*d[[k]][which(d[[k]]$Censor == 1 & d[[k]]$Phase == 3 & d[[k]]$trun == F),1]) + 
-        sum(parm[k]*(d[[5]]$Lower[which(d[[k]]$Phase == 1 & d[[k]]$trun == T)]) - 
-              parm[k]*(d[[k]]$Upper[which(d[[k-5]]$Phase == 1 & d[[k]]$trun == T)])) +
-        sum(parm[k]*parm[4]*(d[[k]]$Lower[which(d[[k-5]]$Phase == 2 & d[[k]]$trun == T)]) - 
-              parm[k]*parm[4]*(d[[k]]$Upper[which(d[[k-5]]$Phase == 2 & d[[k]]$trun == T)])) + 
-        sum(parm[k]*parm[4]*parm[5]*(d[[k]]$Lower[which(d[[k]]$Phase == 3 & d[[k]]$trun == T)]) - 
-              parm[k]*parm[4]*parm[5]*(d[[k]]$Upper[which(d[[k]]$Phase == 3 & d[[k]]$trun == T)]))
-    }
-    
-    lp <- lp + 
-      dgamma(parm[1], hyperA1, hyperA2, log=T) + 
-      dgamma(parm[2],hyperB1, hyperB2, log=T) + 
-      dgamma(parm[3],hyperT1A, hyperT1B, log=T) + 
-      dgamma(parm[4],hyperT2A, hyperT2B, log=T) +
-      dgamma(parm[5], parm[1], parm[2], log=T)
-    
-    return(lp)
-  }
+  acca <- 0
+  accs <- 0
   
   # phase obs counts 
   phase2Count <- 0
@@ -82,32 +56,35 @@ ExpoOLMCMC <- function(data, samples, hyperB1 = .001, hyperB2 = .001,
     totalMBFP3 <- 0
     
     for(j in 1:length(data)){
-      totalMBFP1 <- totalMBFP1 + sum(data[[j]]$MBF[which(data[[j]]$Phase == 1)])
-      totalMBFP2 <- totalMBFP2 + sum(draws[i-1,3]*data[[j]]$MBF[which(data[[j]]$Phase == 2)])
-      totalMBFP3 <- totalMBFP3 + sum(draws[i-1,3]*draws[i-1,4]*data[[j]]$MBF[which(data[[j]]$Phase == 3)])
+      totalMBFP1 <- totalMBFP1 + sum(data[[j]]$MBF[which(data[[j]]$Phase == 1)]^shape_draws[i-1])
+      totalMBFP2 <- totalMBFP2 + sum(rho1_draws[i-1]*(data[[j]]$MBF[which(data[[j]]$Phase == 2)]^shape_draws[i-1]))
+      totalMBFP3 <- totalMBFP3 + sum(rho1_draws[i-1]*rho2_draws[i-1]*(data[[j]]$MBF[which(data[[j]]$Phase == 3)]^shape_draws[i-1]))
     }
     
-    draws[i,5] <- rgamma(1,totalObsNoCen+draws[i-1,1],
-                           sum(totalMBFP1, totalMBFP2, totalMBFP3) + draws[i-1,2])
-
-    draws[i,2] <- rgamma(1, draws[i-1,1] + hyperB1, draws[i,5] + hyperB2)
+    lam_draws[i] <- rgamma(1,totalObsNoCen + alpha_draws[i-1],
+                           sum(totalMBFP1, totalMBFP2, totalMBFP3) + beta_draws[i-1])
+    
+    
+    beta_draws[i] <- rgamma(1, length(data)*alpha_draws[i-1] + HyperG1,
+                            sum(lam_draws[i]) + HyperG2)
     
     # Phase sums
     phase2Sum <- 0
-    phase3Sum3 <- 0
     phase3Sum4 <- 0
+    phase3Sum5 <- 0
     for(k in 1:length(data)){
-      phase2Sum <- phase2Sum + draws[i,5] * sum(data[[k]]$MBF[which(data[[k]]$Phase == 2)])
+      phase2Sum <- phase2Sum + lam_draws[i] * sum(data[[k]]$MBF[data[[k]]$Phase == 2]^shape_draws[i-1])
       
-      # for the first theta
-      phase3Sum3 <- phase3Sum3 + draws[i,5] * draws[i-1,4] * sum(data[[k]]$MBF[which(data[[k]]$Phase == 3)])
+      # for the first rho
+      phase3Sum4 <- phase3Sum4 + lam_draws[i] * rho2_draws[i-1] * sum(data[[k]]$MBF[data[[k]]$Phase == 3]^shape_draws[i-1])
       
-      # for second theta
-      phase3Sum4 <- phase3Sum4 + draws[i,5] * draws[i-1,3] * sum(data[[k]]$MBF[which(data[[k]]$Phase == 3)])
+      # for second rho
+      phase3Sum5 <- phase3Sum5 + lam_draws[i] * rho1_draws[i-1] * sum(data[[k]]$MBF[data[[k]]$Phase == 3]^shape_draws[i-1])
     }
     
-    draws[i,3] <- rgamma(1, phase2Count + phase3Count + hyperT1A, phase2Sum + phase3Sum3 + hyperT1B)
-    draws[i,4] <- rgamma(1, phase3Count + hyperT2A, phase3Sum4 + hyperT2B)
+    rho1_draws[i] <- rgamma(1, phase2Count + phase3Count + hyperT1A, phase2Sum + phase3Sum4 + hyperT1B)
+    rho2_draws[i] <- rgamma(1, phase3Count + hyperT2A, phase3Sum5 + hyperT2B)
+    
     
     ################################
     # metropolis hastings
@@ -115,76 +92,82 @@ ExpoOLMCMC <- function(data, samples, hyperB1 = .001, hyperB2 = .001,
     
     # Auto-adjusting Tuning Params
     if((i %% 500) == 0){
-      if(acc/i > .55){
-        if(acc/i > .7){
-          tuning <- tuning*2
+      if(acca/i > .55){
+        if(acca/i > .7){
+          tuningA <- tuningA*2
         } else{
-          tuning <- tuning*1.5
+          tuningA <- tuningA*1.5
         }
-      } else if (acc/i < .3) {
-        if(acc/i < .2){
-          tuning <- tuning/2
+      } else if (acca/i < .3) {
+        if(acca/i < .2){
+          tuningA <- tuningA/2
         } else {
-          tuning <- tuning/1.5
+          tuningA <- tuningA/1.5
         }
       }
     }
     
-    #Sample from alpha 
-    draws[i,1] <- draws[i-1,1]
-    astar <- rnorm(1, draws[i-1,1], tuning)
+    # Sample from alpha 
+    alpha_draws[i] <- alpha_draws[i-1]
+    shape_draws[i] <- shape_draws[i-1]
+    astar <- rnorm(1, alpha_draws[i-1], tuningA)
     if (astar > 0) {
-      lnew <- logPost(c(astar, draws[i,2:ncol(draws)]), data)
-      lold <- logPost(c(draws[i-1,1], draws[i,2:ncol(draws)]), data)
+      lnew <- logPostOneLamExpo(d = data, lambda = lam_draws[i], shape = shape_draws[i],
+                      rho1 = rho1_draws[i], rho2 = rho2_draws[i],
+                      alpha = astar, beta = beta_draws[i])
+      lold <- logPostOneLamExpo(d = data, lambda = lam_draws[i], shape = shape_draws[i],
+                      rho1 = rho1_draws[i], rho2 = rho2_draws[i],
+                      alpha = alpha_draws[i-1], beta = beta_draws[i])
       if(is.finite(lnew - lold)){
         if (lnew - lold > log(runif(1))) {
-          draws[i,1] <- astar
-          acc <- acc + 1
+          alpha_draws[i] <- astar
+          acca <- acca + 1
+          twoXlogLike[i] <- (-2) * lnew
+        } else {
+          twoXlogLike[i] <- (-2) * lold
         }
+      } else {
+        twoXlogLike[i] <- (-2) * lold
       }
+    } else {
+      lold <- logPostOneLamExpo(d = data, lambda = lam_draws[i], shape = shape_draws[i],
+                                rho1 = rho1_draws[i], rho2 = rho2_draws[i],
+                                alpha = alpha_draws[i-1], beta = beta_draws[i])
+      twoXlogLike[i] <- (-2) * lold
     }
+    
   }
-  
-  # need DIC
   
   # DIC
   if(samples > 200){
-    d <- rep(0, samples-99)
-    for(i in 100:samples){
-      for(j  in 1:length(data)){
-        d[i-99] <- d[i-99] - 
-          2*(sum(dexp(data[[j]]$MBF[which(data[[j]]$Censor == 0 & data[[j]]$Phase == 1)], draws[i,5], log = T)) +
-               sum(dexp(data[[j]]$MBF[which(data[[j]]$Censor == 0 & data[[j]]$Phase == 2)], draws[i,5]*draws[i,3], log = T)) +
-               sum(dexp(data[[j]]$MBF[which(data[[j]]$Censor == 0 & data[[j]]$Phase == 3)], draws[i,5]*draws[i,3]*draws[i,4], log = T)) -
-               sum(draws[i,5]*(data[[j]]$MBF[which(data[[j]]$Censor == 1 & data[[j]]$Phase == 1)])) -
-               sum(draws[i,5]*draws[i,3]*(data[[j]]$MBF[which(data[[j]]$Censor == 1 & data[[j]]$Phase == 2)])) -
-               sum(draws[i,5]*draws[i,3]*draws[i,4]*(data[[j]]$MBF[which(data[[j]]$Censor == 1 & data[[j]]$Phase == 3)])))
-      }
-    }
     
-    davg <- mean(d)
+    davg <- mean(twoXlogLike[200:samples])
     
     dthetahat <- 0
-    for(j in 1:length(data)){
-      dthetahat <- dthetahat - 2*(sum(dexp(data[[j]]$MBF[which(data[[j]]$Censor == 0 & data[[j]]$Phase == 1)], mean(draws[100:samples,5]), log = T)) +
-                                    sum(dexp(data[[j]]$MBF[which(data[[j]]$Censor == 0 & data[[j]]$Phase == 2)], mean(draws[100:samples,5])*mean(draws[100:samples,3]), log = T)) +
-                                    sum(dexp(data[[j]]$MBF[which(data[[j]]$Censor == 0 & data[[j]]$Phase == 3)], mean(draws[100:samples,5])*mean(draws[100:samples,3])*mean(draws[100:samples,4]), log = T)) -
-                                    sum(mean(draws[100:samples,5])*(data[[j]]$MBF[which(data[[j]]$Censor == 1 & data[[j]]$Phase == 1)])) -
-                                    sum(mean(draws[100:samples,5])*mean(draws[100:samples,3])*(data[[j]]$MBF[which(data[[j]]$Censor == 1 & data[[j]]$Phase == 2)])) -
-                                    sum(mean(draws[100:samples,5])*mean(draws[100:samples,3])*mean(draws[100:samples,4])*(data[[j]]$MBF[which(data[[j]]$Censor == 1 & data[[j]]$Phase == 3)])))
-    }
     
-    pd <- davg - dthetahat
+    dthetahat <- logPostOneLamExpo(d = data, lambda = mean(lam_draws[200:samples]), 
+                                   shape = mean(shape_draws[200:samples]),
+                                   rho1 = mean(rho1_draws[200:samples]), 
+                                   rho2 = mean(rho2_draws[200:samples]),
+                                   alpha = mean(alpha_draws[200:samples]), 
+                                   beta = mean(beta_draws[200:samples]))
+    
+    pd <- davg + 2 * dthetahat
     dic <- davg + pd
   } else {
     pd <- NULL
     dic <- NULL
   }
   
-  
-  return(list(draws = draws,
-              acceptance = acc/samples,
+  return(list(lam_draws = lam_draws,
+              alpha_draws = alpha_draws,
+              beta_draws = beta_draws,
+              rho1_draws = rho1_draws,
+              rho2_draws = rho2_draws,
+              shape_draws = shape_draws,
+              acceptanceAlpha = acca/samples, 
               DIC = dic,
               PD = pd))
+  
 }
 

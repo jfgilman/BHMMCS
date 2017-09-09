@@ -56,34 +56,7 @@ for(i in 1:length(subList)){
     }
 }
 
-iter <- 10000
-
-# Weibull with with rate param from distribution for each subsystem
-# source("R/FastWMcMC.R")
-# WDICs <- c()
-# 
-# output <- list()
-# 
-# M1 <- cmpfun(fastWMcMC)
-# 
-# for(i in 1:26){
-#   
-#   if(i %in% c(7, 11, 20, 21, 22, 25)){
-#     output[[i]] <- M1(subList[[i]],
-#                       tuningA = 4,
-#                       tuningS = .02,
-#                       samples = iter)
-#   }else{
-#     output[[i]] <- M1(subList[[i]],
-#                       tuningA = 4,
-#                       tuningS = .02,
-#                       samples = iter)
-#   }
-# 
-#   print(i)
-# }
-
-# save(output ,file="R/output.RData")
+iter <- 30000
 
 # Exponential with some rate param from distribution and others common for each subsystem
 source("R/ExpoOneLambda.R")
@@ -94,16 +67,18 @@ M3 <- cmpfun(ExpoPhaseMCMC)
 expoOutput <- list()
 
 for(i in 1:26){
-  if(i %in% c(1, 2, 11, 15, 17)){
-    expoOutput <- M2(subList[[i]], tuning = 4, samples = iter)
+  if(i %in% c(1, 4, 6, 7, 9, 12, 15, 16, 17, 18, 19, 21, 22, 24, 26)){
+    expoOutput[[i]] <- M2(subList[[i]], tuningA = 4, samples = iter)
   } else {
-    expoOutput <- M3(subList[[i]], tuning = 4, samples = iter)
+    expoOutput[[i]] <- M3(subList[[i]], tuningA = 4, samples = iter)
   }
 
   print(i)
 }
 
 save(expoOutput ,file="expoOutput.RData")
+
+print("Expo Done")
 
 # Weibull with some rate param from distribution and others common for each subsystem
 source("R/FastWMcMC.R")
@@ -115,28 +90,67 @@ weiOutput <- list()
 
 for(i in 1:26){
   if(i %in% c(1, 4, 6, 7, 9, 12, 15, 16, 17, 18, 19, 21, 22, 24, 26)){
-    weiOutput <- M4(subList[[i]],
-               tuningA = 4,
-               tuningS = .02,
-               samples = iter)
+    weiOutput[[i]] <- M4(subList[[i]],
+                       tuningA = 4,
+                       tuningS = .02,
+                       samples = iter)
   } else {
-    weiOutput <- M1(subList[[i]],
-               tuningA = 4,
-               tuningS = .02,
-               samples = iter)
+    weiOutput[[i]] <- M1(subList[[i]],
+                       tuningA = 4,
+                       tuningS = .02,
+                       samples = iter)
   }
   print(i)
 }
 
 save(weiOutput ,file="weiOutput.RData")
+print("Weibull Done")
 
 # Weibull with a single shape parameter for all subsystems
 # and all rate param from distribution
 
-source("OneShapeMCMC.R")
+source("R/OneShapeMCMC.R")
 
 M5 <- cmpfun(WeibullOneShapeMCMC)
 
 output3 <- M5(subList, samples = iter, tuningS = .01, tuningA = 2)
 
 save(output3 ,file="oneShapeOutput.RData")
+
+
+
+
+
+# expoOutput[[1]]$acceptanceAlpha
+# expoOutput[[2]]$acceptanceAlpha
+# 
+# expoOutput[[1]]$DIC
+# expoOutput[[1]]$PD
+# 
+# expoOutput[[2]]$DIC
+# expoOutput[[2]]$PD
+# 
+# library(coda)
+# 
+# plot(as.mcmc(expoOutput[[1]]$lam_draws))
+# plot(as.mcmc(expoOutput[[2]]$lam_draws[,1]))
+# 
+# 
+# 
+# 
+# weiOutput[[1]]$acceptanceShape
+# weiOutput[[1]]$acceptanceAlpha
+# 
+# weiOutput[[2]]$acceptanceShape
+# weiOutput[[2]]$acceptanceAlpha
+# 
+# weiOutput[[1]]$DIC
+# weiOutput[[1]]$PD
+# 
+# weiOutput[[2]]$DIC
+# weiOutput[[2]]$PD
+# 
+# library(coda)
+# 
+# plot(as.mcmc(weiOutput[[1]]$lam_draws))
+# plot(as.mcmc(weiOutput[[2]]$lam_draws[,1]))
