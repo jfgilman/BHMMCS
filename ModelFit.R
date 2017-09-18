@@ -56,7 +56,7 @@ for(i in 1:length(subList)){
     }
 }
 
-iter <- 30000
+iter <- 50000
 
 # Exponential with some rate param from distribution and others common for each subsystem
 source("R/ExpoOneLambda.R")

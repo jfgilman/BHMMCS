@@ -366,17 +366,18 @@ colnames(expo3) <- c("Model", "Phase", "EMTF")
 colnames(wei1) <- c("Model", "Phase", "EMTF")
 colnames(wei2) <- c("Model", "Phase", "EMTF")
 colnames(wei3) <- c("Model", "Phase", "EMTF")
-colnames(wone1) <- c("Model", "Phase", "EMTF")
-colnames(wone2) <- c("Model", "Phase", "EMTF")
-colnames(wone3) <- c("Model", "Phase", "EMTF")
-all.data <- rbind(expo1, expo2, expo3, wei1, wei2, wei3, wone1, wone2, wone3)
+# colnames(wone1) <- c("Model", "Phase", "EMTF")
+# colnames(wone2) <- c("Model", "Phase", "EMTF")
+# colnames(wone3) <- c("Model", "Phase", "EMTF")
+# all.data <- rbind(expo1, expo2, expo3, wei1, wei2, wei3, wone1, wone2, wone3)
+all.data <- rbind(expo1, expo2, expo3, wei1, wei2, wei3)
 
-boxplots.triple = boxplot(all.data$EMTF ~ all.data$Phase + all.data$Model, at = c(1, 1.8, 2.6, 4, 4.8, 5.6, 7, 7.8, 8.6), xaxt='n', ylim = c(0, 800), col = c('white', 'white', 'gray'))
-axis(side=1, at=c(1.8, 4.8, 7.8), labels=c('Exponential', 'Weibull', 'Weibull with One Shape'), line=0.5, lwd=0)
-title('Comparing EMTF for Different Models')
+boxplots.triple = boxplot(all.data$EMTF ~ all.data$Phase + all.data$Model, at = c(1, 1.8, 2.6, 5, 5.8, 6.6), xaxt='n', ylim = c(0, 450), col = c('white', 'white', 'gray'))
+axis(side=1, at=c(1.8, 5.8), labels=c('Exponential', 'Weibull'), line=0.5, lwd=0)
+title('Comparing EMTF for Exponential and Weibull')
 
-rect(c(1.4, 4.4, 7.4), boxplots.triple$stats[2, c(2, 5, 8)], c(2.2, 5.2, 8.2), boxplots.triple$stats[4, c(2, 5, 8)], density=12, angle=45)
-text(c(1, 1.8, 2.6, 4, 4.8, 5.6, 7, 7.8, 8.6), c(10, 10, 10, 10, 10, 10, 10, 10, 10), c('Phase 1', 'Phase 2', 'Phase 3', 'Phase 1', 'Phase 2', 'Phase 3', 'Phase 1', 'Phase 2', 'Phase 3'))
+rect(c(1.4, 5.4), boxplots.triple$stats[2, c(2, 5)], c(2.2, 6.2), boxplots.triple$stats[4, c(2, 5)], density=12, angle=45)
+text(c(1, 1.8, 2.6, 5, 5.8, 6.6), c(70, 60, 80, 60, 40, 70), c('Phase 1', 'Phase 2', 'Phase 3', 'Phase 1', 'Phase 2', 'Phase 3'))
 
 
 
